@@ -24,6 +24,12 @@
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
+#include <string.h>
+#include <stdio.h>
+
+#include "mqtt.h"
+#include "lwip.h"
+#include "lwip/dns.h"
 
 /* USER CODE END Includes */
 
@@ -34,6 +40,10 @@
 
 /* Private define ------------------------------------------------------------*/
 /* USER CODE BEGIN PD */
+
+#define LOG_INFO(...) (printf(__VA_ARGS__))
+#define LOG_ERR(...) (printf(__VA_ARGS__))
+
 /* USER CODE END PD */
 
 /* Private macro -------------------------------------------------------------*/
@@ -78,7 +88,17 @@ void StartMsgTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int fputc(int ch,FILE *stream)
+{
+		if(ch == 10){
+			fputc(13, stream);
+		}
 
+		LL_USART_TransmitData8(USART2, ch);
+		while ( !LL_USART_IsActiveFlag_TXE(USART2) ) {};
+
+    return (ch);
+}
 /* USER CODE END 0 */
 
 /**
@@ -450,7 +470,7 @@ void StartDefaultTask(void *argument)
   /* Infinite loop */
   for(;;)
   {
-    osDelay(1);
+    osDelay(100);
   }
   /* USER CODE END 5 */
 }
@@ -461,15 +481,125 @@ void StartDefaultTask(void *argument)
 * @param argument: Not used
 * @retval None
 */
+
+ip_addr_t 													server_ip;
+mqtt_client_t 											*My_client;
+struct mqtt_connect_client_info_t 	ci;
+int																	is_connected = 0;
+
+/* Called when publish is complete either with sucess or failure */
+static void mqtt_pub_request_cb(void *arg, err_t result)
+{
+  if(result != ERR_OK) {
+    printf("Publish result: %d-----------------\n", result);
+  }
+}
+
+void example_publish(mqtt_client_t *client, void *arg)
+{
+  const char *pub_payload= "MyMqttDemo";
+  err_t err;
+  u8_t qos = 0; /* 0 1 or 2, see MQTT specification */
+  u8_t retain = 0; /* No don't retain such crappy payload... */
+  err = mqtt_publish(client, "MyMqttDemo", pub_payload, strlen(pub_payload), qos, retain, mqtt_pub_request_cb, arg);
+  if(err != ERR_OK) {
+    printf("Publish err: %d-----------------\n", err);
+  }
+}
+
+
+/* Wait until this callback gets the IP */
+static void mqtt_resolved_cb(const char *host, const ip_addr_t *ipaddr,
+                             void *callback_arg)
+{
+  /* If resolved IP is known -> set it */
+  if (ipaddr->addr != 0)
+  {
+    server_ip.addr = ipaddr->addr;
+		printf("server_ip.addr =%s-----------------\n", ip4addr_ntoa(&server_ip));
+  }
+}
+
+
+
+static void mqtt_connection_cb(
+    mqtt_client_t *client, 
+    void *arg, 
+    mqtt_connection_status_t status)
+{
+    if(status == MQTT_CONNECT_ACCEPTED) {
+        LOG_INFO("mqtt_connection_cb: Successfully connected-----------------\n");
+				is_connected = 1;
+    } else {
+        LOG_ERR("mqtt_connection_cb: Disconnected, reason: %d-----------------\n", status);
+    }  
+}
+
+const char local_name[] = "DELLZHUK";
+
 /* USER CODE END Header_StartMsgTask */
 void StartMsgTask(void *argument)
 {
   /* USER CODE BEGIN StartMsgTask */
   /* Infinite loop */
+  osDelay(1000);
+	err_t err = dns_gethostbyname(local_name, &server_ip, mqtt_resolved_cb, NULL);	
+	
+	  /* Setup an empty client info structure */
+  memset(&ci, 0, sizeof(ci));
+
+  /* Set client information */
+  ci.client_id = "MyDemmoClient";
+  ci.client_user = NULL;
+  ci.client_pass = NULL;
+  ci.keep_alive = 0;
+  ci.will_topic = NULL;
+  ci.will_msg = NULL;
+  ci.will_retain = 0;
+  ci.will_qos = 1;
+	
+	int StartTime = HAL_GetTick();
+	int CurTime = StartTime;
+	
+  /* Allocate memory for MQTT client */
+	printf("Start of My_client init -----------------\n");	
+  My_client = mqtt_client_new();
+		
+	//IP4_ADDR(&server_ip, 192, 168, 1, 4);
+		
+  osDelay(1000);
+
+  /* Connect to the server */
+  if (My_client != NULL)
+  {
+		printf("Attempton to connect, timer=0 -----------------\n");	
+		StartTime = HAL_GetTick();
+    err_t err = mqtt_client_connect(
+      My_client, &server_ip, 1883, mqtt_connection_cb, 0, &ci);
+		printf("Result err == %d-----------------\n", err);	
+  }else{
+		printf("Client ==0-----------------\n");	
+	};
+	
+	int i = 0;
   for(;;)
   {
-    osDelay(1);
-  }
+		printf("Cicle %d-----------------\r\n", ++i);
+    osDelay(10000);
+		stats_display();
+		
+		if(My_client != 0){
+			if(is_connected){
+				CurTime = HAL_GetTick();				
+				printf("Connected, time spended ms %d -----------------\n", CurTime-StartTime);	
+				
+				example_publish(My_client, 0);
+			}else{
+				printf("Still not connected-----------------\r\n");
+			};
+		};
+	};
+
   /* USER CODE END StartMsgTask */
 }
 
