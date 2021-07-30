@@ -20,7 +20,7 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 #include "cmsis_os.h"
-#include "lwip.h"
+#include "mbedtls.h"
 
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
@@ -30,6 +30,10 @@
 #include "mqtt.h"
 #include "lwip.h"
 #include "lwip/dns.h"
+#include "lwip/altcp_tls.h"
+
+#include "PassStrLocal.h"
+//#include "PassStr.h"
 
 /* USER CODE END Includes */
 
@@ -59,14 +63,14 @@ PCD_HandleTypeDef hpcd_USB_OTG_FS;
 osThreadId_t defaultTaskHandle;
 const osThreadAttr_t defaultTask_attributes = {
   .name = "defaultTask",
-  .stack_size = 128 * 4,
+  .stack_size = 256 * 4,
   .priority = (osPriority_t) osPriorityNormal,
 };
 /* Definitions for myMsgTask */
 osThreadId_t myMsgTaskHandle;
 const osThreadAttr_t myMsgTask_attributes = {
   .name = "myMsgTask",
-  .stack_size = 1024 * 4,
+  .stack_size = 30000 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
@@ -132,6 +136,7 @@ int main(void)
   MX_USART2_UART_Init();
   MX_USART3_UART_Init();
   MX_USB_OTG_FS_PCD_Init();
+  MX_MBEDTLS_Init();
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
@@ -464,8 +469,6 @@ static void MX_GPIO_Init(void)
 /* USER CODE END Header_StartDefaultTask */
 void StartDefaultTask(void *argument)
 {
-  /* init code for LWIP */
-  MX_LWIP_Init();
   /* USER CODE BEGIN 5 */
   /* Infinite loop */
   for(;;)
@@ -542,7 +545,8 @@ void StartMsgTask(void *argument)
 {
   /* USER CODE BEGIN StartMsgTask */
   /* Infinite loop */
-  osDelay(1000);
+	MX_LWIP_Init();
+
 	err_t err = dns_gethostbyname(local_name, &server_ip, mqtt_resolved_cb, NULL);	
 	
 	  /* Setup an empty client info structure */
@@ -558,15 +562,31 @@ void StartMsgTask(void *argument)
   ci.will_retain = 0;
   ci.will_qos = 1;
 	
+	
 	int StartTime = HAL_GetTick();
 	int CurTime = StartTime;
+	
+	printf("Start of TLS init, time=0 -----------------\n");	
+
+	ci.tls_config = altcp_tls_create_config_client_2wayauth(
+		(const u8_t*)CaStr, sizeof(CaStr),
+		(const u8_t*)PrivKeyStr, sizeof(PrivKeyStr),
+		(const u8_t*)PubKeyStr, sizeof(PubKeyStr),
+		(const u8_t*)SertStr, sizeof(SertStr)
+	);
+	CurTime = -(StartTime - HAL_GetTick());
+	printf("End of TLS init, time spend %d -----------------\n", CurTime);	
+	
 	
   /* Allocate memory for MQTT client */
 	printf("Start of My_client init -----------------\n");	
   My_client = mqtt_client_new();
+	CurTime = CurTime - HAL_GetTick();
+	printf("End of My_client init, time spend %d -----------------\n", -CurTime);	
 		
 	//IP4_ADDR(&server_ip, 192, 168, 1, 4);
 		
+  osDelay(1000);
   osDelay(1000);
 
   /* Connect to the server */
@@ -575,7 +595,7 @@ void StartMsgTask(void *argument)
 		printf("Attempton to connect, timer=0 -----------------\n");	
 		StartTime = HAL_GetTick();
     err_t err = mqtt_client_connect(
-      My_client, &server_ip, 1883, mqtt_connection_cb, 0, &ci);
+      My_client, &server_ip, 8883, mqtt_connection_cb, 0, &ci);
 		printf("Result err == %d-----------------\n", err);	
   }else{
 		printf("Client ==0-----------------\n");	
@@ -598,8 +618,7 @@ void StartMsgTask(void *argument)
 				printf("Still not connected-----------------\r\n");
 			};
 		};
-	};
-
+  }
   /* USER CODE END StartMsgTask */
 }
 
