@@ -32,8 +32,8 @@
 #include "lwip/dns.h"
 #include "lwip/altcp_tls.h"
 
-#include "PassStrLocal.h"
-//#include "PassStr.h"
+//#include "PassStrLocal.h"
+#include "PassStr.h"
 
 /* USER CODE END Includes */
 
@@ -70,7 +70,7 @@ const osThreadAttr_t defaultTask_attributes = {
 osThreadId_t myMsgTaskHandle;
 const osThreadAttr_t myMsgTask_attributes = {
   .name = "myMsgTask",
-  .stack_size = 30000 * 4,
+  .stack_size = 25000 * 4,
   .priority = (osPriority_t) osPriorityLow,
 };
 /* USER CODE BEGIN PV */
@@ -539,6 +539,7 @@ static void mqtt_connection_cb(
 }
 
 const char local_name[] = "DELLZHUK";
+const char aws_name[] = "a24wy2kd5he3th-ats.iot.eu-west-2.amazonaws.com";
 
 /* USER CODE END Header_StartMsgTask */
 void StartMsgTask(void *argument)
@@ -547,13 +548,13 @@ void StartMsgTask(void *argument)
   /* Infinite loop */
 	MX_LWIP_Init();
 
-	err_t err = dns_gethostbyname(local_name, &server_ip, mqtt_resolved_cb, NULL);	
+	err_t err = dns_gethostbyname(aws_name, &server_ip, mqtt_resolved_cb, NULL);	
 	
 	  /* Setup an empty client info structure */
   memset(&ci, 0, sizeof(ci));
 
   /* Set client information */
-  ci.client_id = "MyDemmoClient";
+  ci.client_id = aws_name;
   ci.client_user = NULL;
   ci.client_pass = NULL;
   ci.keep_alive = 0;
