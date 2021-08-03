@@ -54,7 +54,7 @@
 /*----- Value in opt.h for MEM_ALIGNMENT: 1 -----*/
 #define MEM_ALIGNMENT 4
 /*----- Default Value for MEM_SIZE: 1600 ---*/
-#define MEM_SIZE 100000
+#define MEM_SIZE 200000
 /*----- Default Value for MEMP_OVERFLOW_CHECK: 0 ---*/
 #define MEMP_OVERFLOW_CHECK 2
 /*----- Default Value for MEM_OVERFLOW_CHECK: 0 ---*/

@@ -92,7 +92,7 @@ void StartMsgTask(void *argument);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
-int fputc(int ch,FILE *stream)
+/*int fputc(int ch,FILE *stream)
 {
 		if(ch == 10){
 			fputc(13, stream);
@@ -102,7 +102,7 @@ int fputc(int ch,FILE *stream)
 		while ( !LL_USART_IsActiveFlag_TXE(USART2) ) {};
 
     return (ch);
-}
+}*/
 /* USER CODE END 0 */
 
 /**
